@@ -9,7 +9,7 @@ from config.settings.social_login import *  # noqa
 
 SECRET_KEY = env("SECRET_KEY", default="secret")
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["*"])
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
 
@@ -141,6 +141,37 @@ DJANGO_GUID = {
     "IGNORE_URLS": [],
     "UUID_LENGTH": 32,
 }
+
+DATABASES = {
+    "default": {
+        "ENGINE": "psqlextra.backend",
+        "NAME": env("POSTGRES_DB"),
+        "USER": env("POSTGRES_USER"),
+        "PASSWORD": env("POSTGRES_PASSWORD"),
+        "HOST": env("POSTGRES_HOST"),
+        "PORT": env("POSTGRES_PORT", default="5432"),
+        "CONN_MAX_AGE": env.int("POSTGRES_CONN_MAX_AGE", default=60),
+    },
+    "admin": {
+        "ENGINE": "psqlextra.backend",
+        "NAME": env("POSTGRES_DB"),
+        "USER": env("POSTGRES_ADMIN_USER"),
+        "PASSWORD": env("POSTGRES_ADMIN_PASSWORD"),
+        "HOST": env("POSTGRES_HOST"),
+        "PORT": env("POSTGRES_PORT", default="5432"),
+        "CONN_MAX_AGE": env.int("POSTGRES_CONN_MAX_AGE", default=60),
+    },
+    "prowler_user": {
+        "ENGINE": "psqlextra.backend",
+        "NAME": env("POSTGRES_DB"),
+        "USER": env("POSTGRES_USER"),
+        "PASSWORD": env("POSTGRES_PASSWORD"),
+        "HOST": env("POSTGRES_HOST"),
+        "PORT": env("POSTGRES_PORT", default="5432"),
+        "CONN_MAX_AGE": env.int("POSTGRES_CONN_MAX_AGE", default=60),
+    },
+}
+
 
 DATABASE_ROUTERS = ["api.db_router.MainRouter"]
 

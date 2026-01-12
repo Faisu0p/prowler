@@ -27,11 +27,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install PowerShell
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then \
-        wget --progress=dot:giga https://github.com/PowerShell/PowerShell/releases/download/v${POWERSHELL_VERSION}/powershell-${POWERSHELL_VERSION}-linux-x64.tar.gz -O /tmp/powershell.tar.gz ; \
+    wget --progress=dot:giga https://github.com/PowerShell/PowerShell/releases/download/v${POWERSHELL_VERSION}/powershell-${POWERSHELL_VERSION}-linux-x64.tar.gz -O /tmp/powershell.tar.gz ; \
     elif [ "$ARCH" = "aarch64" ]; then \
-        wget --progress=dot:giga https://github.com/PowerShell/PowerShell/releases/download/v${POWERSHELL_VERSION}/powershell-${POWERSHELL_VERSION}-linux-arm64.tar.gz -O /tmp/powershell.tar.gz ; \
+    wget --progress=dot:giga https://github.com/PowerShell/PowerShell/releases/download/v${POWERSHELL_VERSION}/powershell-${POWERSHELL_VERSION}-linux-arm64.tar.gz -O /tmp/powershell.tar.gz ; \
     else \
-        echo "Unsupported architecture: $ARCH" && exit 1 ; \
+    echo "Unsupported architecture: $ARCH" && exit 1 ; \
     fi && \
     mkdir -p /opt/microsoft/powershell/7 && \
     tar zxf /tmp/powershell.tar.gz -C /opt/microsoft/powershell/7 && \
@@ -42,11 +42,11 @@ RUN ARCH=$(uname -m) && \
 # Install Trivy for IaC scanning
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then \
-        TRIVY_ARCH="Linux-64bit" ; \
+    TRIVY_ARCH="Linux-64bit" ; \
     elif [ "$ARCH" = "aarch64" ]; then \
-        TRIVY_ARCH="Linux-ARM64" ; \
+    TRIVY_ARCH="Linux-ARM64" ; \
     else \
-        echo "Unsupported architecture for Trivy: $ARCH" && exit 1 ; \
+    echo "Unsupported architecture for Trivy: $ARCH" && exit 1 ; \
     fi && \
     wget --progress=dot:giga "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz" -O /tmp/trivy.tar.gz && \
     tar zxf /tmp/trivy.tar.gz -C /tmp && \
@@ -68,7 +68,9 @@ WORKDIR /home/prowler
 # Ensure output directory exists
 RUN mkdir -p /tmp/prowler_api_output
 
-COPY pyproject.toml ./
+# COPY pyproject.toml ./
+COPY pyproject.toml poetry.lock ./
+
 
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir poetry
@@ -84,6 +86,11 @@ RUN poetry run python "$(poetry env info --path)/src/prowler/prowler/providers/m
 COPY src/backend/ ./backend/
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 
+USER root
+RUN chmod +x /home/prowler/docker-entrypoint.sh
+USER prowler
+
+
 WORKDIR /home/prowler/backend
 
 # Development image
@@ -92,6 +99,9 @@ FROM build AS dev
 ENTRYPOINT ["../docker-entrypoint.sh", "dev"]
 
 # Production image
-FROM build
+FROM build AS prod
 
-ENTRYPOINT ["../docker-entrypoint.sh", "prod"]
+# ENTRYPOINT ["../docker-entrypoint.sh", "prod"]
+# ENTRYPOINT ["/home/prowler/docker-entrypoint.sh", "prod"]
+ENTRYPOINT ["/home/prowler/docker-entrypoint.sh"]
+CMD ["prod"]

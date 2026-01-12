@@ -27,18 +27,21 @@ start_dev_server() {
 
 start_prod_server() {
   echo "Starting the Gunicorn server..."
-  poetry run gunicorn -c config/guniconf.py config.wsgi:application
+  exec poetry run gunicorn \
+    -c config/guniconf.py \
+    --bind 0.0.0.0:${DJANGO_PORT:-8080} \
+    config.wsgi:application
 }
 
 start_worker() {
   echo "Starting the worker..."
-  poetry run python -m celery -A config.celery worker -l "${DJANGO_LOGGING_LEVEL:-info}" -Q celery,scans,scan-reports,deletion,backfill,overview,integrations,compliance -E --max-tasks-per-child 1
+  exec poetry run python -m celery -A config.celery worker -l "${DJANGO_LOGGING_LEVEL:-info}" -Q celery,scans,scan-reports,deletion,backfill,overview,integrations,compliance -E --max-tasks-per-child 1
 }
 
 start_worker_beat() {
   echo "Starting the worker-beat..."
   sleep 15
-  poetry run python -m celery -A config.celery beat -l "${DJANGO_LOGGING_LEVEL:-info}" --scheduler django_celery_beat.schedulers:DatabaseScheduler
+  exec poetry run python -m celery -A config.celery beat -l "${DJANGO_LOGGING_LEVEL:-info}" --scheduler django_celery_beat.schedulers:DatabaseScheduler
 }
 
 manage_db_partitions() {
@@ -63,9 +66,11 @@ case "$1" in
     start_prod_server
     ;;
   worker)
+    export DJANGO_SETTINGS_MODULE=config.django.base
     start_worker
     ;;
   beat)
+    export DJANGO_SETTINGS_MODULE=config.django.base
     start_worker_beat
     ;;
   *)
