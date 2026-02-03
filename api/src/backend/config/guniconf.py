@@ -8,14 +8,19 @@ from config.env import env
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.django.production")
 
 # Import Django and set it up before accessing settings
-import django  # noqa: E402
+import django
 
 django.setup()
-from config.django.production import LOGGING as DJANGO_LOGGERS, DEBUG  # noqa: E402
-from config.custom_logging import BackendLogger  # noqa: E402
 
-BIND_ADDRESS = env("DJANGO_BIND_ADDRESS", default="127.0.0.1")
-PORT = env("DJANGO_PORT", default=8000)
+# Settings need to be imported after django.setup()
+from config.custom_logging import BackendLogger  # noqa: E402
+from config.django.production import DEBUG  # noqa: E402
+from config.django.production import LOGGING as DJANGO_LOGGERS  # noqa: E402
+
+# Azure Container Apps and App Service use PORT environment variable
+# Default to 80 for Azure Container Apps, fallback to 8000 for local dev
+PORT = env.int("PORT", default=env.int("DJANGO_PORT", default=8000))
+BIND_ADDRESS = env("DJANGO_BIND_ADDRESS", default="0.0.0.0")
 
 # Server settings
 bind = f"{BIND_ADDRESS}:{PORT}"

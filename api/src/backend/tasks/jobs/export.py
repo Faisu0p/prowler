@@ -4,6 +4,7 @@ import zipfile
 
 import boto3
 import config.django.base as base
+from azure.storage.blob import BlobServiceClient
 from botocore.exceptions import ClientError, NoCredentialsError, ParamValidationError
 from celery.utils.log import get_task_logger
 from django.conf import settings
@@ -251,6 +252,100 @@ def _upload_to_s3(
         return f"s3://{base.DJANGO_OUTPUT_S3_AWS_OUTPUT_BUCKET}/{s3_key}"
     except (ClientError, NoCredentialsError, ParamValidationError, ValueError) as e:
         logger.error(f"S3 upload failed: {str(e)}")
+
+
+def get_azure_blob_client():
+    """
+    Create and return an Azure Blob Service Client using connection string from environment.
+
+    Returns:
+        BlobServiceClient: A configured Azure Blob Service Client instance.
+
+    Raises:
+        Exception: If Azure connection string is not configured.
+    """
+    connection_string = getattr(settings, "AZURE_STORAGE_CONNECTION_STRING", None)
+    if not connection_string:
+        raise ValueError("AZURE_STORAGE_CONNECTION_STRING not configured")
+
+    return BlobServiceClient.from_connection_string(connection_string)
+
+
+def _upload_to_azure_blob(
+    tenant_id: str, scan_id: str, local_path: str, relative_key: str
+) -> str | None:
+    """
+    Upload a local artifact to Azure Blob Storage under the tenant/scan prefix.
+
+    Args:
+        tenant_id (str): The tenant identifier used as the first segment of the blob path.
+        scan_id (str): The scan identifier used as the second segment of the blob path.
+        local_path (str): Filesystem path to the artifact to upload.
+        relative_key (str): Blob name relative to `<tenant_id>/<scan_id>/`.
+
+    Returns:
+        str | None: Azure Blob URL of the uploaded artifact, or None if the upload is skipped.
+
+    Raises:
+        Exception: If the upload attempt to Azure Blob Storage fails for any reason.
+    """
+    container_name = getattr(settings, "AZURE_STORAGE_CONTAINER_NAME", None)
+    if not container_name:
+        logger.warning(
+            "AZURE_STORAGE_CONTAINER_NAME not configured, skipping Azure Blob upload"
+        )
+        return None
+
+    if not relative_key:
+        return None
+
+    if not os.path.isfile(local_path):
+        return None
+
+    try:
+        blob_service_client = get_azure_blob_client()
+        container_client = blob_service_client.get_container_client(container_name)
+
+        blob_path = f"{tenant_id}/{scan_id}/{relative_key}"
+        blob_client = container_client.get_blob_client(blob_path)
+
+        with open(local_path, "rb") as data:
+            blob_client.upload_blob(data, overwrite=True)
+
+        blob_url = blob_client.url
+        logger.info(f"Successfully uploaded to Azure Blob: {blob_url}")
+        return blob_url
+    except Exception as e:
+        logger.error(f"Azure Blob upload failed: {str(e)}")
+        return None
+
+
+def _upload_artifact(
+    tenant_id: str, scan_id: str, local_path: str, relative_key: str
+) -> str | None:
+    """
+    Upload a local artifact to cloud storage (S3 or Azure Blob).
+
+    This function checks for Azure Blob configuration first, then falls back to S3.
+
+    Args:
+        tenant_id (str): The tenant identifier used in the storage path.
+        scan_id (str): The scan identifier used in the storage path.
+        local_path (str): Filesystem path to the artifact to upload.
+        relative_key (str): Object/blob key relative to `<tenant_id>/<scan_id>/`.
+
+    Returns:
+        str | None: URL/URI of the uploaded artifact, or None if upload is skipped.
+    """
+    # Try Azure Blob first if configured
+    azure_connection = getattr(settings, "AZURE_STORAGE_CONNECTION_STRING", None)
+    if azure_connection:
+        result = _upload_to_azure_blob(tenant_id, scan_id, local_path, relative_key)
+        if result:
+            return result
+
+    # Fall back to S3
+    return _upload_to_s3(tenant_id, scan_id, local_path, relative_key)
 
 
 def _build_output_path(
