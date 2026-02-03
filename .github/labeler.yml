@@ -46,7 +46,7 @@ provider/oci:
   - changed-files:
       - any-glob-to-any-file: "prowler/providers/oraclecloud/**"
       - any-glob-to-any-file: "tests/providers/oraclecloud/**"
-      
+
 provider/alibabacloud:
   - changed-files:
       - any-glob-to-any-file: "prowler/providers/alibabacloud/**"

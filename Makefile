@@ -56,4 +56,3 @@ run-api-dev: ## Start development environment with API, PostgreSQL, Valkey, MCP,
 
 ##@ Development Environment
 build-and-run-api-dev: build-no-cache-dev run-api-dev
-
